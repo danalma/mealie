@@ -1,6 +1,7 @@
+from contextlib import suppress
 from functools import cached_property
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import UUID4
 
 from mealie.routes._base.base_controllers import BaseUserController
@@ -17,6 +18,7 @@ from mealie.schema.recipe.recipe_ingredient import (
 )
 from mealie.schema.response.pagination import PaginationQuery
 from mealie.schema.response.responses import SuccessResponse
+from mealie.services.recipe.food_ai_service import FoodCategorizationService
 
 router = APIRouter(prefix="/foods", tags=["Recipes: Foods"], route_class=MealieCrudRoute)
 
@@ -47,10 +49,18 @@ class IngredientFoodsController(BaseUserController):
         return response
 
     @router.post("", response_model=IngredientFood, status_code=201)
-    def create_one(self, data: CreateIngredientFood):
+    async def create_one(self, data: CreateIngredientFood, background_tasks: BackgroundTasks):
         self.checks.can_organize()
         save_data = mapper.cast(data, SaveIngredientFood, group_id=self.group_id)
-        return self.mixins.create_one(save_data)
+        created_food = self.mixins.create_one(save_data)
+        background_tasks.add_task(self.food_categorization_service, created_food)
+        return created_food
+
+    async def food_categorization_service(self, food: IngredientFood) -> None:
+        if food is not None:
+            service = FoodCategorizationService(self.repos)
+            with suppress(Exception):
+                await service.classify_and_assign_to_food(food.name, food_id=food.id)
 
     @router.put("/merge", response_model=SuccessResponse)
     def merge_one(self, data: MergeFood):
