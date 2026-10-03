@@ -35,3 +35,5 @@ services:
 
 volumes:
   ollama-data:
+    volumes:
+      - ../dev/data/postgres:/var/lib/postgresql/data

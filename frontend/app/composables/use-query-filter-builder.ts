@@ -18,7 +18,6 @@ export interface FieldPlaceholderKeyword {
 
 export interface OrganizerBase {
   id: string;
-  slug: string;
   name: string;
 }
 
@@ -28,6 +27,7 @@ export type FieldType
     | "boolean"
     | "date"
     | "relativeDate"
+    | "duration" // seconds
     | RecipeOrganizer;
 
 export type FieldValue
@@ -203,6 +203,7 @@ export function useQueryFilterBuilder() {
       || type === Organizer.Tag
       || type === Organizer.Tool
       || type === Organizer.Food
+      || type === Organizer.Label
       || type === Organizer.Household
       || type === Organizer.User
     );
@@ -262,13 +263,22 @@ export function useQueryFilterBuilder() {
             relativeDateRelOps.value[">="],
           ];
           break;
+        case "duration":
+          operatorChoices = [
+            // "<=" is first since "at most" is the most common operator
+            relOps.value["<="],
+            relOps.value[">="],
+            relOps.value["<"],
+            relOps.value[">"],
+          ];
+          break;
         default:
           operatorChoices = [relOps.value["="], relOps.value["<>"]];
       }
     }
     updatedField.relationalOperatorChoices = operatorChoices;
     if (!operatorChoices.includes(updatedField.relationalOperatorValue)) {
-      updatedField.relationalOperatorValue = operatorChoices[0];
+      updatedField.relationalOperatorValue = operatorChoices[0]!;
     }
 
     if (resetValue) {

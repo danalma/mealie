@@ -63,6 +63,7 @@ def test_default_connection_args(monkeypatch):
 def test_pg_connection_args(monkeypatch):
     monkeypatch.setenv("DB_ENGINE", "postgres")
     monkeypatch.setenv("POSTGRES_SERVER", "postgres")
+    monkeypatch.setenv("POSTGRES_DB", "mealie")
     get_app_settings.cache_clear()
     app_settings = get_app_settings()
     assert app_settings.DB_URL == "postgresql://mealie:mealie@postgres:5432/mealie"
@@ -189,8 +190,8 @@ class SMTPValidationCase:
     auth_strategy: str
     from_name: str
     from_email: str
-    user: str
-    password: str
+    user: str | None
+    password: str | None
     is_valid: bool
 
 
@@ -206,6 +207,24 @@ smtp_validation_cases = [
     (
         "no_auth",
         SMTPValidationCase("email.mealie.io", "25", "none", "Mealie", "mealie@mealie.io", "", "", True),
+    ),
+    (
+        "tls_without_credentials",
+        SMTPValidationCase("email.mealie.io", "587", "tls", "Mealie", "mealie@mealie.io", None, None, True),
+    ),
+    (
+        "ssl_without_credentials",
+        SMTPValidationCase("email.mealie.io", "465", "ssl", "Mealie", "mealie@mealie.io", "", "", True),
+    ),
+    (
+        "tls_with_username_only",
+        SMTPValidationCase(
+            "email.mealie.io", "587", "tls", "Mealie", "mealie@mealie.io", "mealie@mealie.io", "", False
+        ),
+    ),
+    (
+        "ssl_with_password_only",
+        SMTPValidationCase("email.mealie.io", "465", "ssl", "Mealie", "mealie@mealie.io", "", "mealie-password", False),
     ),
     (
         "good_data_tls",
@@ -225,7 +244,7 @@ smtp_validation_cases = [
         SMTPValidationCase(
             "email.mealie.io",
             "465",
-            "tls",
+            "ssl",
             "Mealie",
             "mealie@mealie.io",
             "mealie@mealie.io",
@@ -294,7 +313,7 @@ ldap_cases_ids = [x[0] for x in ldap_validation_cases]
 def test_ldap_settings_validation(data: LDAPValidationCase, monkeypatch: pytest.MonkeyPatch):
     for setting in data.settings:
         if setting.value is not None:
-            monkeypatch.setenv(setting.name, setting.value)
+            monkeypatch.setenv(setting.name, str(setting.value))
         else:
             monkeypatch.delenv(setting.name, raising=False)
 
@@ -366,7 +385,7 @@ oidc_cases_ids = [x[0] for x in oidc_validation_cases]
 def test_oidc_settings_validation(data: OIDCValidationCase, monkeypatch: pytest.MonkeyPatch):
     for setting in data.settings:
         if setting.value is not None:
-            monkeypatch.setenv(setting.name, setting.value)
+            monkeypatch.setenv(setting.name, str(setting.value))
         else:
             monkeypatch.delenv(setting.name, raising=False)
 
